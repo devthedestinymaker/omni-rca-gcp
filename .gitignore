@@ -1,0 +1,18 @@
+# Python & Conda
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Environment variables & secrets
+.env
+
+# Local Vector DB, generated logs & trained model artifacts
+data/chroma_db/*
+!data/chroma_db/.gitkeep
+data/raw_logs/*
+!data/raw_logs/.gitkeep
+data/fine_tune_dataset/*
+!data/fine_tune_dataset/.gitkeep
+artifacts/*
+!artifacts/.gitkeep

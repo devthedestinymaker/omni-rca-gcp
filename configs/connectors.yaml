@@ -1,0 +1,74 @@
+# ==============================================================================
+# WHAT: Plug-and-Play Connector Registry for OmniRCA-GCP (Multi-Alert + Data + Service Planes)
+# WHY:  Your production environment uses BOTH Dynatrace and Google Cloud Alerting,
+#       plus GCP Data/Service tools (Composer, Dataflow, BigQuery, Pub/Sub, dbt,
+#       Terraform, Harness). Separating each tool into a modular `plane` lets you
+#       toggle any combination ON/OFF today and plug in new tools (PagerDuty,
+#       Datadog, ServiceNow) tomorrow with zero changes to core AI/ML/MCP code.
+# HOW:  Each entry configures its default toggle state, signal plane ('alert',
+#       'service_log', 'data_quality', 'cicd'), and data source path/API filter.
+# WHERE: Loaded dynamically by `ConnectorRegistry` in `src/connectors/base.py`
+#        and rendered as live toggle checkboxes in the Streamlit UI (`ui/app.py`).
+# ==============================================================================
+
+connectors:                                                                 # Top-level YAML dictionary holding all plug-and-play service configurations
+  dynatrace:                                                                # Unique internal key identifying the Dynatrace alert plugin
+    enabled: true                                                           # Default toggle state (true = loaded automatically unless unchecked in UI)
+    plane: "alert"                                                          # Categorizes this source under the Alert Plane (incident triggers)
+    display_name: "Dynatrace Problems & Davis AI Alerts"                    # Human-readable label shown next to the checkbox in the Streamlit UI
+    source_mode: "local_json"                                               # Tells connector to read local mock JSON (switch to 'api' in production)
+    path: "data/raw_logs/dynatrace_alerts.json"                             # Local file path containing simulated Dynatrace problem events
+    description: "Dynatrace detected problem events and anomaly triggers."  # Tooltip/help text explaining what signals this connector provides
+
+  gcp_monitoring:                                                           # Unique internal key identifying Google Cloud Monitoring & Alerting
+    enabled: true                                                           # Active by default alongside Dynatrace for multi-alert support
+    plane: "alert"                                                          # Categorizes this source under the Alert Plane
+    display_name: "GCP Cloud Monitoring & Alerting"                         # Human-readable UI label for native GCP alert policies
+    source_mode: "local_json"                                               # Reads local JSON offline (switch to 'gcp_api' for live Cloud Monitoring)
+    path: "data/raw_logs/gcp_monitoring_alerts.json"                        # Local file path for simulated GCP alert notifications
+    gcp_filter: 'resource.type="global" AND logName:"monitoring"'           # Cloud Logging filter query used when connecting to live GCP APIs
+    description: "Native GCP alert policies and SLA threshold breaches."    # UI description text
+
+  cloud_composer:                                                           # Unique internal key identifying GCP Cloud Composer (managed Airflow)
+    enabled: true                                                           # Active by default since Composer orchestrates most GCP pipelines
+    plane: "service_log"                                                    # Categorizes this source under the Service/Log Plane
+    display_name: "GCP Cloud Composer (Airflow)"                            # Human-readable UI label
+    source_mode: "local_json"                                               # Local JSON mode for zero-cost offline development
+    path: "data/raw_logs/composer_logs.json"                                # Local file path for Airflow DAG and task execution logs
+    gcp_filter: 'resource.type="cloud_composer_environment"'                # Live GCP Cloud Logging filter for Composer environments
+    description: "Airflow DAG runs, task retries, and Python tracebacks."   # UI description text
+
+  dataflow:                                                                 # Unique internal key identifying GCP Cloud Dataflow (Apache Beam)
+    enabled: true                                                           # Active by default to capture streaming/batch worker errors
+    plane: "service_log"                                                    # Categorizes this source under the Service/Log Plane
+    display_name: "GCP Cloud Dataflow (Apache Beam)"                        # Human-readable UI label
+    source_mode: "local_json"                                               # Local JSON mode for offline development
+    path: "data/raw_logs/dataflow_logs.json"                                # Local file path for Dataflow worker logs and watermark lag metrics
+    gcp_filter: 'resource.type="dataflow_step"'                             # Live GCP Cloud Logging filter for Dataflow jobs
+    description: "Worker OOM exceptions, watermark lag, and shuffle bottlenecks." # UI description text
+
+  bigquery_data_quality:                                                    # Unique internal key identifying BigQuery & dbt Data Quality signals
+    enabled: true                                                           # Active by default so Data-Plane incidents (nulls/row drops) are caught
+    plane: "data_quality"                                                   # Categorizes this source under the Data Plane (not just raw service logs)
+    display_name: "GCP BigQuery & dbt Data Quality"                         # Human-readable UI label
+    source_mode: "local_json"                                               # Local JSON mode for offline development
+    path: "data/raw_logs/bigquery_dq_signals.json"                          # Local file path for BQ table stats, slot errors, and dbt test failures
+    gcp_filter: 'resource.type="bigquery_resource"'                         # Live GCP Cloud Logging filter for BigQuery audit events
+    description: "Row-count drops, null spikes, schema drift, and dbt tests." # UI description text
+
+  pubsub_streaming:                                                         # Unique internal key identifying GCP Pub/Sub messaging queues
+    enabled: false                                                          # Disabled by default to keep initial triage focused (toggle ON in UI anytime)
+    plane: "data_quality"                                                   # Categorizes backlog/dead-letter anomalies under the Data Plane
+    display_name: "GCP Pub/Sub Backlog & Dead-Letter"                       # Human-readable UI label
+    source_mode: "local_json"                                               # Local JSON mode for offline development
+    path: "data/raw_logs/pubsub_signals.json"                               # Local file path for unacked message age and DLQ metrics
+    gcp_filter: 'resource.type="pubsub_subscription"'                       # Live GCP Cloud Logging filter for Pub/Sub subscriptions
+    description: "Unacked message age spikes and dead-letter topic surges."  # UI description text
+
+  harness_terraform:                                                        # Unique internal key identifying Harness CI/CD and Terraform infra changes
+    enabled: false                                                          # Disabled by default; toggle ON when suspecting a bad deploy caused an outage
+    plane: "cicd"                                                           # Categorizes deployment events under the CI/CD Plane
+    display_name: "Harness CI/CD & Terraform State"                         # Human-readable UI label
+    source_mode: "local_json"                                               # Local JSON mode for offline development
+    path: "data/raw_logs/harness_deploys.json"                              # Local file path for deployment timestamps and Terraform apply logs
+    description: "Recent pipeline deployments and Terraform infra changes."   # UI description text
